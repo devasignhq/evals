@@ -18,12 +18,12 @@ export function ChangedFiles({ files, hotspots }: Props) {
           return (
             <li
               key={f.filename}
-              className={`flex items-center justify-between border-b border-border/60 px-4 py-2 last:border-b-0 ${
+              className={`flex flex-wrap items-center justify-between gap-2 border-b border-border/60 px-4 py-2 last:border-b-0 ${
                 hot ? "border-l-4 border-l-primary bg-primary-muted" : ""
               }`}
             >
-              <div className="flex items-center gap-2 font-mono text-xs">
-                <span className="text-text-primary">{f.filename}</span>
+              <div className="flex min-w-0 flex-wrap items-center gap-2 font-mono text-xs">
+                <span className="break-all text-text-primary">{f.filename}</span>
                 {hot && (
                   <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-primary">
                     ⚠ Hotspot
