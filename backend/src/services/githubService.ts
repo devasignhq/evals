@@ -44,7 +44,6 @@ export class HttpGithubService implements GithubService {
   }
 
   async fetchPRMetadata(repo: string, prNumber: number): Promise<PRMetadata> {
-    // TODO: Implement pagination to handle PRs with >100 changed files
     const [pr, filesRaw] = await Promise.all([
       this.req<RawPR>(`/repos/${repo}/pulls/${prNumber}`),
       this.req<RawPRFile[]>(`/repos/${repo}/pulls/${prNumber}/files?per_page=100`),

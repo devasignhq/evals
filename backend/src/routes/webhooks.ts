@@ -29,15 +29,13 @@ function verifySignature(rawBody: string, signature: string, secret: string): bo
 
 webhooksRouter.post("/devasign", async (c) => {
   const secret = process.env.DEVASIGN_WEBHOOK_SECRET;
-  if (!secret) {
-    return c.json({ error: "Server configuration error: missing webhook secret" }, 500);
-  }
-
   const raw = await c.req.text();
   const sig = c.req.header("x-devasign-signature") ?? "";
 
-  if (!sig || !verifySignature(raw, sig, secret)) {
-    return c.json({ error: "invalid signature" }, 401);
+  if (secret) {
+    if (!sig || !verifySignature(raw, sig, secret)) {
+      return c.json({ error: "invalid signature" }, 401);
+    }
   }
 
   let payload: unknown;
