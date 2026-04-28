@@ -17,7 +17,10 @@ app.use("*", requestLogger);
 app.use(
   "*",
   cors({
-    origin: (o) => o,
+    origin:
+      process.env.APP_ENV === "production"
+        ? [process.env.FRONTEND_URL ?? ""]
+        : "*",
     allowHeaders: ["Authorization", "Content-Type", "X-DevaSign-Signature"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: false,
