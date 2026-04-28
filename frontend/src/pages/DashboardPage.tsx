@@ -32,7 +32,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Dashboard</h1>
           <div className="text-sm text-text-secondary">
@@ -42,7 +42,7 @@ export function DashboardPage() {
         <TriggerEvalButton />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {aggQ.isLoading && (
           <>
             <Skeleton className="h-28" />
@@ -52,7 +52,7 @@ export function DashboardPage() {
           </>
         )}
         {aggQ.isError && (
-          <div className="col-span-4">
+          <div className="sm:col-span-2 lg:col-span-4">
             <ErrorState
               message={(aggQ.error as Error).message}
               onRetry={() => aggQ.refetch()}
@@ -61,43 +61,51 @@ export function DashboardPage() {
         )}
         {aggQ.data && (
           <>
-            <KPICard
-              label="Overall Avg"
-              value={aggQ.data.overallAvg}
-              spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
-              sparkColor="#e85d04"
-              delta={
-                aggQ.data.trend === "up"
-                  ? { value: 2.1, label: "vs prior" }
-                  : aggQ.data.trend === "down"
-                    ? { value: -2.1, label: "vs prior" }
-                    : undefined
-              }
-            />
-            <KPICard
-              label="Pass Rate"
-              value={`${aggQ.data.passRate}%`}
-              spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
-              sparkColor="#22c55e"
-            />
-            <KPICard
-              label="Missed Regressions"
-              value={aggQ.data.missedRegressions}
-              spark={trendsQ.data?.points.map((p) => p.regressionCoverage) ?? []}
-              sparkColor="#ef4444"
-            />
-            <KPICard
-              label="Total Evals"
-              value={aggQ.data.totalEvals}
-              spark={trendsQ.data?.points.map((p) => p.relevance) ?? []}
-              sparkColor="#60a5fa"
-            />
+            {(() => {
+              const prev = aggQ.data.previous;
+              const delta = (cur: number, p: number | undefined) =>
+                p === undefined ? undefined : { value: cur - p, label: "vs prior" };
+              return (
+                <>
+                  <KPICard
+                    label="Overall Avg"
+                    value={aggQ.data.overallAvg}
+                    spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
+                    sparkColor="#e85d04"
+                    delta={delta(aggQ.data.overallAvg, prev?.overallAvg)}
+                  />
+                  <KPICard
+                    label="Pass Rate"
+                    value={`${aggQ.data.passRate}%`}
+                    spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
+                    sparkColor="#22c55e"
+                    delta={delta(aggQ.data.passRate, prev?.passRate)}
+                  />
+                  <KPICard
+                    label="Missed Regressions"
+                    value={aggQ.data.missedRegressions}
+                    spark={trendsQ.data?.points.map((p) => p.regressionCoverage) ?? []}
+                    sparkColor="#ef4444"
+                    direction="lower-better"
+                    delta={delta(aggQ.data.missedRegressions, prev?.missedRegressions)}
+                  />
+                  <KPICard
+                    label="Total Evals"
+                    value={aggQ.data.totalEvals}
+                    spark={trendsQ.data?.points.map((p) => p.relevance) ?? []}
+                    sparkColor="#60a5fa"
+                    direction="neutral"
+                    delta={delta(aggQ.data.totalEvals, prev?.totalEvals)}
+                  />
+                </>
+              );
+            })()}
           </>
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div>
           {trendsQ.isLoading && <Skeleton className="h-72" />}
           {trendsQ.isError && (
             <ErrorState

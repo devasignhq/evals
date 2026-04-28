@@ -11,13 +11,22 @@ const NAV: NavItem[] = [
   { to: "/settings", label: "Settings", icon: "⚙" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="flex h-14 items-center border-b border-border px-5">
+    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-border bg-surface">
+      <div className="flex h-14 items-center justify-between border-b border-border px-5">
         <span className="text-lg font-medium tracking-tight">
           DevAsign<span className="text-primary"> Eval</span>
         </span>
+        {onNavigate && (
+          <button
+            onClick={onNavigate}
+            className="text-text-secondary hover:text-text-primary lg:hidden"
+            aria-label="Close menu"
+          >
+            ✕
+          </button>
+        )}
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 p-3">
         {NAV.map((item) => (
@@ -25,6 +34,7 @@ export function Sidebar() {
             key={item.to}
             to={item.to}
             end={item.to === "/"}
+            onClick={onNavigate}
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
                 isActive

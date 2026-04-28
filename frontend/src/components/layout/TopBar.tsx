@@ -2,7 +2,7 @@ import { useProviders } from "../../hooks/useProviders";
 import { useAppFilters } from "../../state/filters";
 import { useRepos } from "../../hooks/useRepos";
 
-export function TopBar() {
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void } = {}) {
   const { repo, range, provider, setRepo, setRange, setProvider } = useAppFilters();
   const { data: repos } = useRepos();
   const { data: providers } = useProviders();
@@ -11,7 +11,16 @@ export function TopBar() {
   const geminiOk = providers?.providers.find((p) => p.provider === "gemini")?.connected;
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-5">
+    <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-border bg-surface px-4 py-2 sm:gap-3 sm:px-5">
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          className="rounded-md border border-border bg-elevated px-2 py-1.5 text-text-primary lg:hidden"
+          aria-label="Open menu"
+        >
+          ☰
+        </button>
+      )}
       <div className="flex items-center gap-2">
         <select
           value={repo ?? ""}
@@ -56,7 +65,7 @@ export function TopBar() {
           </button>
         ))}
       </div>
-      <div className="ml-auto flex items-center gap-3 text-xs text-text-secondary">
+      <div className="flex items-center gap-3 text-xs text-text-secondary sm:ml-auto">
         <span className="flex items-center gap-1.5">
           <span
             className={`h-2 w-2 rounded-full ${claudeOk ? "bg-pass" : "bg-fail"}`}
