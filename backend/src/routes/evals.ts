@@ -73,12 +73,12 @@ evalsRouter.get("/", async (c) => {
   });
 });
 
-evalsRouter.get("/aggregate", async (c) => {
-  const repo = c.req.query("repo");
-  const from = parseDate(c.req.query("from"));
-  const to = parseDate(c.req.query("to"));
-
-  const db = getDb();
+async function aggregateRange(
+  db: ReturnType<typeof getDb>,
+  repo: string | undefined,
+  from: Date | undefined,
+  to: Date | undefined
+) {
   const conds = [];
   if (repo) conds.push(eq(evalResults.repo, repo));
   if (from && to) conds.push(between(evalResults.evaluatedAt, from, to));
@@ -97,28 +97,38 @@ evalsRouter.get("/aggregate", async (c) => {
     .where(where);
 
   const s = stats[0] ?? { total: 0, avgOverall: 0, passes: 0, missed: 0 };
+  const total = Number(s.total);
+  return {
+    overallAvg: Math.round(Number(s.avgOverall)),
+    passRate: total > 0 ? Math.round((Number(s.passes) / total) * 100) : 0,
+    missedRegressions: Number(s.missed),
+    totalEvals: total,
+  };
+}
 
-  // simple trend: compare last half vs first half average
-  const halves = await db
-    .select({
-      avgFirst: sql<number>`coalesce(avg(${evalResults.overallScore}) filter (where ${evalResults.evaluatedAt} < (now() - interval '15 days')), 0)`,
-      avgSecond: sql<number>`coalesce(avg(${evalResults.overallScore}) filter (where ${evalResults.evaluatedAt} >= (now() - interval '15 days')), 0)`,
-    })
-    .from(evalResults)
-    .where(where);
-  const h = halves[0] ?? { avgFirst: 0, avgSecond: 0 };
+evalsRouter.get("/aggregate", async (c) => {
+  const repo = c.req.query("repo");
+  const from = parseDate(c.req.query("from"));
+  const to = parseDate(c.req.query("to"));
+
+  const db = getDb();
+  const current = await aggregateRange(db, repo, from, to);
+
+  let previous: AggregateStats["previous"];
+  if (from && to) {
+    const duration = to.getTime() - from.getTime();
+    const prevTo = from;
+    const prevFrom = new Date(from.getTime() - duration);
+    previous = await aggregateRange(db, repo, prevFrom, prevTo);
+  }
+
+  const overallDelta = previous ? current.overallAvg - previous.overallAvg : 0;
   const trend: AggregateStats["trend"] =
-    Math.abs(h.avgSecond - h.avgFirst) < 1
-      ? "flat"
-      : h.avgSecond > h.avgFirst
-        ? "up"
-        : "down";
+    Math.abs(overallDelta) < 1 ? "flat" : overallDelta > 0 ? "up" : "down";
 
   const out: AggregateStats = {
-    overallAvg: Math.round(Number(s.avgOverall)),
-    passRate: s.total > 0 ? Math.round((s.passes / s.total) * 100) : 0,
-    missedRegressions: Number(s.missed),
-    totalEvals: Number(s.total),
+    ...current,
+    previous,
     trend,
   };
   return c.json(out);

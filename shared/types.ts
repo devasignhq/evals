@@ -75,6 +75,13 @@ export interface AggregateStats {
   passRate: number;
   missedRegressions: number;
   totalEvals: number;
+  previous?: {
+    overallAvg: number;
+    passRate: number;
+    missedRegressions: number;
+    totalEvals: number;
+  };
+  /** @deprecated use previous + client-side delta */
   trend: "up" | "down" | "flat";
 }
 

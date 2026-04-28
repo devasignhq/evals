@@ -61,37 +61,45 @@ export function DashboardPage() {
         )}
         {aggQ.data && (
           <>
-            <KPICard
-              label="Overall Avg"
-              value={aggQ.data.overallAvg}
-              spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
-              sparkColor="#e85d04"
-              delta={
-                aggQ.data.trend === "up"
-                  ? { value: 2.1, label: "vs prior" }
-                  : aggQ.data.trend === "down"
-                    ? { value: -2.1, label: "vs prior" }
-                    : undefined
-              }
-            />
-            <KPICard
-              label="Pass Rate"
-              value={`${aggQ.data.passRate}%`}
-              spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
-              sparkColor="#22c55e"
-            />
-            <KPICard
-              label="Missed Regressions"
-              value={aggQ.data.missedRegressions}
-              spark={trendsQ.data?.points.map((p) => p.regressionCoverage) ?? []}
-              sparkColor="#ef4444"
-            />
-            <KPICard
-              label="Total Evals"
-              value={aggQ.data.totalEvals}
-              spark={trendsQ.data?.points.map((p) => p.relevance) ?? []}
-              sparkColor="#60a5fa"
-            />
+            {(() => {
+              const prev = aggQ.data.previous;
+              const delta = (cur: number, p: number | undefined) =>
+                p === undefined ? undefined : { value: cur - p, label: "vs prior" };
+              return (
+                <>
+                  <KPICard
+                    label="Overall Avg"
+                    value={aggQ.data.overallAvg}
+                    spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
+                    sparkColor="#e85d04"
+                    delta={delta(aggQ.data.overallAvg, prev?.overallAvg)}
+                  />
+                  <KPICard
+                    label="Pass Rate"
+                    value={`${aggQ.data.passRate}%`}
+                    spark={trendsQ.data?.points.map((p) => p.overall) ?? []}
+                    sparkColor="#22c55e"
+                    delta={delta(aggQ.data.passRate, prev?.passRate)}
+                  />
+                  <KPICard
+                    label="Missed Regressions"
+                    value={aggQ.data.missedRegressions}
+                    spark={trendsQ.data?.points.map((p) => p.regressionCoverage) ?? []}
+                    sparkColor="#ef4444"
+                    direction="lower-better"
+                    delta={delta(aggQ.data.missedRegressions, prev?.missedRegressions)}
+                  />
+                  <KPICard
+                    label="Total Evals"
+                    value={aggQ.data.totalEvals}
+                    spark={trendsQ.data?.points.map((p) => p.relevance) ?? []}
+                    sparkColor="#60a5fa"
+                    direction="neutral"
+                    delta={delta(aggQ.data.totalEvals, prev?.totalEvals)}
+                  />
+                </>
+              );
+            })()}
           </>
         )}
       </div>
