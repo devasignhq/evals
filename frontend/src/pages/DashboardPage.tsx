@@ -104,7 +104,7 @@ export function DashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div>
           {trendsQ.isLoading && <Skeleton className="h-72" />}
           {trendsQ.isError && (
