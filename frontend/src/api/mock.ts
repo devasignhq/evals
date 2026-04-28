@@ -292,40 +292,55 @@ export function mockEvals(filters: {
   };
 }
 
-export function mockAggregate(filters: {
+function aggregateRangeMock(filters: {
   repo?: string;
   from?: string;
   to?: string;
-}): AggregateStats {
+}): {
+  overallAvg: number;
+  passRate: number;
+  missedRegressions: number;
+  totalEvals: number;
+} {
   const { items } = mockEvals({ ...filters, page: 1, limit: 9999 });
   const total = items.length;
   if (total === 0) {
-    return {
-      overallAvg: 0,
-      passRate: 0,
-      missedRegressions: 0,
-      totalEvals: 0,
-      trend: "flat",
-    };
+    return { overallAvg: 0, passRate: 0, missedRegressions: 0, totalEvals: 0 };
   }
   const passes = items.filter((i) => i.passed).length;
   const avg = items.reduce((s, i) => s + i.scores.overall, 0) / total;
-  const half = Math.floor(total / 2);
-  const recent = items.slice(0, half);
-  const older = items.slice(half);
-  const recentAvg =
-    recent.reduce((s, i) => s + i.scores.overall, 0) / Math.max(1, recent.length);
-  const olderAvg =
-    older.reduce((s, i) => s + i.scores.overall, 0) / Math.max(1, older.length);
-  const trend: AggregateStats["trend"] =
-    Math.abs(recentAvg - olderAvg) < 1 ? "flat" : recentAvg > olderAvg ? "up" : "down";
   return {
     overallAvg: Math.round(avg),
     passRate: Math.round((passes / total) * 100),
     missedRegressions: items.filter((i) => i.regressionDetected).length,
     totalEvals: total,
-    trend,
   };
+}
+
+export function mockAggregate(filters: {
+  repo?: string;
+  from?: string;
+  to?: string;
+}): AggregateStats {
+  const current = aggregateRangeMock(filters);
+
+  let previous: AggregateStats["previous"];
+  if (filters.from && filters.to) {
+    const fromMs = new Date(filters.from).getTime();
+    const toMs = new Date(filters.to).getTime();
+    const duration = toMs - fromMs;
+    previous = aggregateRangeMock({
+      repo: filters.repo,
+      from: new Date(fromMs - duration).toISOString(),
+      to: new Date(fromMs).toISOString(),
+    });
+  }
+
+  const overallDelta = previous ? current.overallAvg - previous.overallAvg : 0;
+  const trend: AggregateStats["trend"] =
+    Math.abs(overallDelta) < 1 ? "flat" : overallDelta > 0 ? "up" : "down";
+
+  return { ...current, previous, trend };
 }
 
 export function mockTrends(filters: {
