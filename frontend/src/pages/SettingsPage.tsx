@@ -7,7 +7,7 @@ import { useRepos } from "../hooks/useRepos";
 export function SettingsPage() {
   const { data: repos } = useRepos();
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-medium tracking-tight">Settings</h1>
         <div className="text-sm text-text-secondary">
@@ -15,7 +15,7 @@ export function SettingsPage() {
         </div>
       </div>
       <ApiKeyStatus />
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ProviderSelector />
         <ThresholdEditor />
       </div>

@@ -31,7 +31,7 @@ export function DashboardPage() {
   const idxQ = useRepoIndex(heatmapRepo);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Dashboard</h1>
