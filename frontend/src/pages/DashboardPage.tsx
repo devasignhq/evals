@@ -32,7 +32,7 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-medium tracking-tight">Dashboard</h1>
           <div className="text-sm text-text-secondary">
@@ -42,7 +42,7 @@ export function DashboardPage() {
         <TriggerEvalButton />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {aggQ.isLoading && (
           <>
             <Skeleton className="h-28" />
@@ -52,7 +52,7 @@ export function DashboardPage() {
           </>
         )}
         {aggQ.isError && (
-          <div className="col-span-4">
+          <div className="sm:col-span-2 lg:col-span-4">
             <ErrorState
               message={(aggQ.error as Error).message}
               onRetry={() => aggQ.refetch()}

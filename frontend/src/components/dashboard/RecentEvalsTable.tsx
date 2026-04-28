@@ -15,7 +15,7 @@ export function RecentEvalsTable({ items }: Props) {
         Recent Evals
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead>
             <tr className="border-b border-border bg-elevated text-xs uppercase tracking-wider text-text-muted">
               <th className="px-4 py-2 text-left">Repo</th>

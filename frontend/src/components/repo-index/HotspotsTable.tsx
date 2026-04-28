@@ -36,7 +36,8 @@ export function HotspotsTable({ hotspots }: Props) {
           </button>
         </div>
       </div>
-      <table className="w-full text-sm">
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b border-border bg-elevated text-xs uppercase tracking-wider text-text-muted">
             <th className="px-4 py-2 text-left">File</th>
@@ -65,6 +66,7 @@ export function HotspotsTable({ hotspots }: Props) {
           ))}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
