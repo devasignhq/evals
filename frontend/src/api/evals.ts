@@ -74,6 +74,7 @@ export async function getEvalByRunId(runId: string): Promise<EvalResult> {
 export async function triggerEval(input: {
   repo: string;
   prNumber: number;
+  installationId: number;
   provider?: "claude" | "gemini";
 }): Promise<EvalResult> {
   if (USE_MOCK) {

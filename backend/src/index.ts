@@ -9,7 +9,6 @@ import { providersRouter } from "./routes/providers.js";
 import { reposRouter } from "./routes/repos.js";
 import { settingsRouter } from "./routes/settings.js";
 import { triggerRouter } from "./routes/trigger.js";
-import { webhooksRouter } from "./routes/webhooks.js";
 
 const app = new Hono();
 
@@ -18,7 +17,7 @@ app.use(
   "*",
   cors({
     origin: (o) => o,
-    allowHeaders: ["Authorization", "Content-Type", "X-DevaSign-Signature"],
+    allowHeaders: ["Authorization", "Content-Type"],
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: false,
   })
@@ -27,9 +26,6 @@ app.use(
 app.get("/health", (c) =>
   c.json({ status: "ok", env: process.env.APP_ENV ?? "development" })
 );
-
-// Webhook is unauthenticated (HMAC-signed instead)
-app.route("/v1/webhooks", webhooksRouter);
 
 // Authenticated routes
 const authed = new Hono();

@@ -1,13 +1,15 @@
-import type { AgentReview, IndexedRepoContext } from "../../../shared/types.js";
+import type { AgentReview } from "../../../shared/types.js";
 
 export interface DevasignService {
-  fetchAgentReview(repo: string, prNumber: number): Promise<AgentReview>;
-  fetchIndexedContext(repo: string, filePaths: string[]): Promise<IndexedRepoContext>;
+  fetchAgentReview(input: {
+    installationId: number;
+    repo: string;
+    prNumber: number;
+  }): Promise<AgentReview>;
 }
 
 interface DevasignServiceConfig {
   baseUrl: string;
-  apiKey: string;
 }
 
 interface RawAgentReview {
@@ -67,6 +69,7 @@ function adaptIssue(raw: unknown): AgentReview["issues"][number] {
   };
 }
 
+// May need adjustment once a real manual-analysis response is observed.
 function adaptAgentReview(
   raw: RawAgentReview,
   repo: string,
@@ -93,165 +96,42 @@ function adaptAgentReview(
   };
 }
 
-interface RawHotspot {
-  filePath?: string;
-  file_path?: string;
-  description?: string;
-  lastOccurred?: string;
-  last_occurred?: string;
-  pattern?: string;
-}
-
-interface RawHistoricalIssue {
-  description?: string;
-  affectedFiles?: string[];
-  affected_files?: string[];
-  resolvedIn?: string;
-  resolved_in?: string;
-  issueType?: string;
-  issue_type?: string;
-  recurrenceRisk?: string;
-  recurrence_risk?: string;
-}
-
-interface RawIndexedContext {
-  repoId?: string;
-  repo_id?: string;
-  indexedAt?: string;
-  indexed_at?: string;
-  ageInDays?: number;
-  age_in_days?: number;
-  relevantPatterns?: unknown[];
-  relevant_patterns?: unknown[];
-  historicalIssues?: unknown[];
-  historical_issues?: unknown[];
-  codingStandards?: unknown[];
-  coding_standards?: unknown[];
-  regressionHotspots?: unknown[];
-  regression_hotspots?: unknown[];
-}
-
-function adaptHotspot(raw: unknown): IndexedRepoContext["regressionHotspots"][number] {
-  const r = raw as RawHotspot;
-  return {
-    filePath: r.filePath ?? r.file_path ?? "",
-    description: r.description ?? "",
-    lastOccurred: r.lastOccurred ?? r.last_occurred ?? "",
-    pattern: r.pattern ?? "",
-  };
-}
-
-function adaptHistoricalIssue(
-  raw: unknown
-): IndexedRepoContext["historicalIssues"][number] {
-  const r = raw as RawHistoricalIssue;
-  const t = (r.issueType ?? r.issue_type ?? "bug").toLowerCase();
-  const allowedT = ["bug", "security", "performance", "architecture"] as const;
-  const issueType = (allowedT as readonly string[]).includes(t)
-    ? (t as IndexedRepoContext["historicalIssues"][number]["issueType"])
-    : "bug";
-  const risk = (r.recurrenceRisk ?? r.recurrence_risk ?? "medium").toLowerCase();
-  const allowedR = ["low", "medium", "high"] as const;
-  const recurrenceRisk = (allowedR as readonly string[]).includes(risk)
-    ? (risk as IndexedRepoContext["historicalIssues"][number]["recurrenceRisk"])
-    : "medium";
-  return {
-    description: r.description ?? "",
-    affectedFiles: r.affectedFiles ?? r.affected_files ?? [],
-    resolvedIn: r.resolvedIn ?? r.resolved_in,
-    issueType,
-    recurrenceRisk,
-  };
-}
-
-function adaptIndexedContext(raw: RawIndexedContext, repo: string): IndexedRepoContext {
-  const hotspotsRaw = raw.regressionHotspots ?? raw.regression_hotspots ?? [];
-  const issuesRaw = raw.historicalIssues ?? raw.historical_issues ?? [];
-  const standardsRaw = (raw.codingStandards ?? raw.coding_standards ?? []) as Array<{
-    rule?: string;
-    scope?: string;
-    rationale?: string;
-  }>;
-  const patternsRaw = (raw.relevantPatterns ?? raw.relevant_patterns ?? []) as Array<{
-    pattern?: string;
-    files?: string[];
-    frequency?: string;
-  }>;
-  return {
-    repoId: raw.repoId ?? raw.repo_id ?? repo,
-    indexedAt: raw.indexedAt ?? raw.indexed_at ?? new Date().toISOString(),
-    ageInDays: raw.ageInDays ?? raw.age_in_days ?? 0,
-    regressionHotspots: hotspotsRaw.map(adaptHotspot),
-    historicalIssues: issuesRaw.map(adaptHistoricalIssue),
-    codingStandards: standardsRaw.map((s) => ({
-      rule: s.rule ?? "",
-      scope: s.scope ?? "",
-      rationale: s.rationale,
-    })),
-    relevantPatterns: patternsRaw.map((p) => {
-      const f = (p.frequency ?? "common").toLowerCase();
-      const allowed = ["rare", "common", "universal"] as const;
-      const frequency = (allowed as readonly string[]).includes(f)
-        ? (f as "rare" | "common" | "universal")
-        : "common";
-      return {
-        pattern: p.pattern ?? "",
-        files: p.files ?? [],
-        frequency,
-      };
-    }),
-  };
-}
-
 export class HttpDevasignService implements DevasignService {
   constructor(private readonly cfg: DevasignServiceConfig) {}
 
-  private async req<T>(path: string, init?: RequestInit): Promise<T> {
-    const url = new URL(path, this.cfg.baseUrl).toString();
+  async fetchAgentReview(input: {
+    installationId: number;
+    repo: string;
+    prNumber: number;
+  }): Promise<AgentReview> {
+    const url = new URL(
+      "/test/ai-services/github/manual-analysis",
+      this.cfg.baseUrl
+    ).toString();
     const res = await fetch(url, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.cfg.apiKey}`,
-        ...(init?.headers ?? {}),
-      },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        installationId: input.installationId,
+        repositoryName: input.repo,
+        prNumber: input.prNumber,
+      }),
     });
     if (!res.ok) {
       const body = await res.text();
-      throw new Error(`DevAsign API ${res.status} ${path}: ${body}`);
+      throw new Error(
+        `DevAsign API ${res.status} /test/ai-services/github/manual-analysis: ${body}`
+      );
     }
-    return (await res.json()) as T;
-  }
-
-  async fetchAgentReview(repo: string, prNumber: number): Promise<AgentReview> {
-    const raw = await this.req<RawAgentReview>(
-      `/agent/reviews/${encodeURIComponent(repo)}/pr/${prNumber}`
-    );
-    return adaptAgentReview(raw, repo, prNumber);
-  }
-
-  async fetchIndexedContext(repo: string, filePaths: string[]): Promise<IndexedRepoContext> {
-    const raw = await this.req<RawIndexedContext>(
-      `/agent/repos/${encodeURIComponent(repo)}/index/context`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          filePaths,
-          includeHotspots: true,
-          includeHistory: true,
-          includeStandards: true,
-        }),
-      }
-    );
-    return adaptIndexedContext(raw, repo);
+    const raw = (await res.json()) as RawAgentReview;
+    return adaptAgentReview(raw, input.repo, input.prNumber);
   }
 }
 
 export function createDevasignService(): DevasignService {
   const baseUrl = process.env.DEVASIGN_AGENT_API_URL;
-  const apiKey = process.env.DEVASIGN_AGENT_API_KEY;
-  if (!baseUrl || !apiKey) {
-    throw new Error("DEVASIGN_AGENT_API_URL and DEVASIGN_AGENT_API_KEY are required");
+  if (!baseUrl) {
+    throw new Error("DEVASIGN_AGENT_API_URL is required");
   }
-  return new HttpDevasignService({ baseUrl, apiKey });
+  return new HttpDevasignService({ baseUrl });
 }

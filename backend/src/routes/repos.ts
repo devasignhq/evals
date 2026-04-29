@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { evalResults, repoIndex } from "../db/schema.js";
-import { createDevasignService } from "../services/devasignService.js";
 
 export const reposRouter = new Hono();
 
@@ -40,32 +39,16 @@ reposRouter.get("/:org/:name/index", async (c) => {
     .where(eq(repoIndex.repo, repo))
     .limit(1);
   const cached = rows[0];
-
-  // Try refreshing from DevAsign if env is configured
-  try {
-    const svc = createDevasignService();
-    const ctx = await svc.fetchIndexedContext(repo, []);
-    return c.json({
-      repoId: ctx.repoId,
-      indexedAt: ctx.indexedAt,
-      ageInDays: ctx.ageInDays,
-      regressionHotspots: ctx.regressionHotspots,
-      historicalIssues: ctx.historicalIssues,
-      codingStandards: ctx.codingStandards,
-      relevantPatterns: ctx.relevantPatterns,
-    });
-  } catch {
-    if (!cached) return c.json({ error: "not indexed yet" }, 404);
-    return c.json({
-      repoId: cached.repo,
-      indexedAt: cached.indexedAt.toISOString(),
-      ageInDays: cached.ageInDays,
-      regressionHotspots: cached.regressionHotspots,
-      historicalIssues: cached.historicalIssues,
-      codingStandards: cached.codingStandards,
-      relevantPatterns: cached.relevantPatterns,
-    });
-  }
+  if (!cached) return c.json({ error: "not indexed yet" }, 404);
+  return c.json({
+    repoId: cached.repo,
+    indexedAt: cached.indexedAt.toISOString(),
+    ageInDays: cached.ageInDays,
+    regressionHotspots: cached.regressionHotspots,
+    historicalIssues: cached.historicalIssues,
+    codingStandards: cached.codingStandards,
+    relevantPatterns: cached.relevantPatterns,
+  });
 });
 
 reposRouter.get("/:org/:name/hotspot-coverage", async (c) => {

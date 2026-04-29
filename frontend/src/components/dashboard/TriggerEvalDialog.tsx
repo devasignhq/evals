@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { triggerEval } from "../../api/evals";
 import { useProviders } from "../../hooks/useProviders";
 
+const DEFAULT_INSTALLATION_ID = "109899673";
+
 export function TriggerEvalButton() {
   const [open, setOpen] = useState(false);
   return (
@@ -22,6 +24,7 @@ export function TriggerEvalButton() {
 function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
   const [repo, setRepo] = useState("");
   const [prNumber, setPrNumber] = useState("");
+  const [installationId, setInstallationId] = useState(DEFAULT_INSTALLATION_ID);
   const [provider, setProvider] = useState<"claude" | "gemini" | "default">("default");
   const { data: providers } = useProviders();
   const qc = useQueryClient();
@@ -32,6 +35,7 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
       triggerEval({
         repo,
         prNumber: parseInt(prNumber, 10),
+        installationId: parseInt(installationId, 10),
         provider: provider === "default" ? undefined : provider,
       }),
     onSuccess: (data) => {
@@ -73,6 +77,17 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-text-muted">
+              Installation ID
+            </label>
+            <input
+              value={installationId}
+              onChange={(e) => setInstallationId(e.target.value)}
+              placeholder="109899673"
+              className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs uppercase tracking-wider text-text-muted">
               Provider
             </label>
             <select
@@ -106,7 +121,7 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={() => mut.mutate()}
-            disabled={!repo || !prNumber || mut.isPending}
+            disabled={!repo || !prNumber || !installationId || mut.isPending}
             className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-40"
           >
             {mut.isPending ? "Running…" : "Run Eval"}
