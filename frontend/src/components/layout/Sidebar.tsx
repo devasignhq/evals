@@ -15,9 +15,10 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-border bg-surface">
       <div className="flex h-14 items-center justify-between border-b border-border px-5">
-        <span className="text-lg font-medium tracking-tight">
-          DevAsign<span className="text-primary"> Eval</span>
-        </span>
+        <div className="flex items-center gap-2">
+          <img src="/logo.svg" alt="DevAsign" className="h-6 w-auto" />
+          <span className="text-sm font-medium text-primary">Eval</span>
+        </div>
         {onNavigate && (
           <button
             onClick={onNavigate}

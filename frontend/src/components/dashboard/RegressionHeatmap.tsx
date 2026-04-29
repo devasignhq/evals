@@ -1,4 +1,5 @@
 import type { EvalResult, RegressionHotspot } from "../../../../shared/types";
+import { now } from "../../utils/now";
 
 interface Props {
   hotspots: RegressionHotspot[];
@@ -17,7 +18,7 @@ interface CellData {
 export function RegressionHeatmap({ hotspots, evals, days = 30 }: Props) {
   const dayList: string[] = [];
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
+    const d = new Date(now());
     d.setDate(d.getDate() - i);
     dayList.push(d.toISOString().slice(0, 10));
   }

@@ -8,6 +8,7 @@ import type {
   TrendDataPoint,
 } from "../../../shared/types";
 import { DIMENSION_WEIGHTS, THRESHOLDS } from "../../../shared/types";
+import { now } from "../utils/now";
 
 const REPOS = ["devasignhq/devasign-api", "devasignhq/devasign-mobile"] as const;
 
@@ -187,7 +188,7 @@ function buildEval(seed: number): EvalResult {
     overall >= THRESHOLDS.overall;
 
   const evaluatedAt = new Date(
-    Date.now() - Math.floor(r() * 60) * 24 * 3600 * 1000 - seed * 1500_000
+    now() - Math.floor(r() * 60) * 24 * 3600 * 1000 - seed * 1500_000
   ).toISOString();
 
   return {
@@ -387,7 +388,7 @@ export function mockEvalDetail(repo: string, prNumber: number): EvalResult | und
 export function mockRepoIndex(repo: string): IndexedRepoContext {
   return {
     repoId: repo,
-    indexedAt: new Date(Date.now() - 6 * 3600 * 1000).toISOString(),
+    indexedAt: new Date(now() - 6 * 3600 * 1000).toISOString(),
     ageInDays: 38,
     regressionHotspots: HOTSPOTS,
     historicalIssues: HISTORICAL_ISSUES,
@@ -401,7 +402,7 @@ export function mockHotspotCoverage(repo: string, days = 30) {
   const recent = MOCK_EVALS.filter(
     (e) =>
       e.repo === repo &&
-      Date.now() - new Date(e.evaluatedAt).getTime() < days * 86400_000
+      now() - new Date(e.evaluatedAt).getTime() < days * 86400_000
   );
   const missed = new Set<string>();
   for (const e of recent) for (const m of e.missedRegressions) missed.add(m.hotspot.filePath);

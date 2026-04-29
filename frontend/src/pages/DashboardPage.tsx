@@ -24,7 +24,7 @@ export function DashboardPage() {
     provider: provider === "all" ? undefined : provider,
     from,
     to,
-    limit: 10,
+    limit: 100,
   });
   // Use first repo's index for hotspot heatmap when none selected
   const heatmapRepo = repo ?? evalsQ.data?.items[0]?.repo;

@@ -28,8 +28,10 @@ export function formatRepo(repo: string): string {
   return repo;
 }
 
+import { now } from "./now";
+
 export function relative(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
+  const ms = now() - new Date(iso).getTime();
   const sec = Math.round(ms / 1000);
   if (sec < 60) return `${sec}s ago`;
   const min = Math.round(sec / 60);

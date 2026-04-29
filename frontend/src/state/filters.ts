@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { now } from "../utils/now";
 
 export type DateRange = "7d" | "30d" | "90d" | "all";
 export type ProviderFilter = "all" | "claude" | "gemini";
@@ -73,7 +74,7 @@ export function useAppFilters() {
 export function rangeToDates(range: DateRange): { from?: string; to?: string } {
   if (range === "all") return {};
   const days = range === "7d" ? 7 : range === "30d" ? 30 : 90;
-  const to = new Date();
+  const to = new Date(now());
   const from = new Date(to.getTime() - days * 24 * 3600 * 1000);
   return { from: from.toISOString(), to: to.toISOString() };
 }
