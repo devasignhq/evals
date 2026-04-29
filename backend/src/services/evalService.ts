@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import type { EvalResult } from "../../../shared/types.js";
+import type { EvalResult, IndexedRepoContext } from "../../../shared/types.js";
 import { getDb } from "../db/client.js";
-import { evalResults, repoIndex, repoSettings } from "../db/schema.js";
+import { evalResults, repoSettings } from "../db/schema.js";
 import type { DevasignService } from "./devasignService.js";
 import type { GithubService } from "./githubService.js";
 import { buildEvalResult, runJudge } from "./judgeService.js";
@@ -15,6 +15,7 @@ import type { ProviderName } from "./providers/types.js";
 export interface RunEvalInput {
   repo: string;
   prNumber: number;
+  installationId: number;
   provider?: ProviderName;
   agentReviewIdHint?: string;
   headShaHint?: string;
@@ -49,42 +50,6 @@ async function resolveProvider(
   return defaultProvider();
 }
 
-async function cacheRepoIndex(
-  repo: string,
-  ctx: Awaited<ReturnType<DevasignService["fetchIndexedContext"]>>
-) {
-  try {
-    const db = getDb();
-    await db
-      .insert(repoIndex)
-      .values({
-        repo,
-        indexedAt: new Date(ctx.indexedAt),
-        ageInDays: ctx.ageInDays,
-        regressionHotspots: ctx.regressionHotspots,
-        historicalIssues: ctx.historicalIssues,
-        codingStandards: ctx.codingStandards,
-        relevantPatterns: ctx.relevantPatterns,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: repoIndex.repo,
-        set: {
-          indexedAt: new Date(ctx.indexedAt),
-          ageInDays: ctx.ageInDays,
-          regressionHotspots: ctx.regressionHotspots,
-          historicalIssues: ctx.historicalIssues,
-          codingStandards: ctx.codingStandards,
-          relevantPatterns: ctx.relevantPatterns,
-          updatedAt: new Date(),
-        },
-      });
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn("Failed to cache repo index:", e);
-  }
-}
-
 async function persistEvalResult(result: EvalResult) {
   const db = getDb();
   await db.insert(evalResults).values({
@@ -116,14 +81,22 @@ export async function runEval(
   const judge = providerFromEnv(providerName);
 
   const pr = await deps.github.fetchPRMetadata(input.repo, input.prNumber);
-  const filePaths = pr.changedFiles.map((f) => f.filename);
 
-  const [agentReview, context] = await Promise.all([
-    deps.devasign.fetchAgentReview(input.repo, input.prNumber),
-    deps.devasign.fetchIndexedContext(input.repo, filePaths),
-  ]);
+  const agentReview = await deps.devasign.fetchAgentReview({
+    installationId: input.installationId,
+    repo: input.repo,
+    prNumber: input.prNumber,
+  });
 
-  void cacheRepoIndex(input.repo, context);
+  const context: IndexedRepoContext = {
+    repoId: input.repo,
+    indexedAt: new Date().toISOString(),
+    ageInDays: 0,
+    relevantPatterns: [],
+    historicalIssues: [],
+    codingStandards: [],
+    regressionHotspots: [],
+  };
 
   const judged = await runJudge(judge, { pr, agentReview, context });
 

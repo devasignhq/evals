@@ -9,6 +9,7 @@ export const triggerRouter = new Hono();
 const triggerSchema = z.object({
   repo: z.string().min(3),
   prNumber: z.number().int().positive(),
+  installationId: z.number().int().positive(),
   provider: z.enum(["claude", "gemini"]).optional(),
 });
 
@@ -26,6 +27,7 @@ triggerRouter.post("/", async (c) => {
       {
         repo: parsed.data.repo,
         prNumber: parsed.data.prNumber,
+        installationId: parsed.data.installationId,
         provider: parsed.data.provider,
       }
     );
