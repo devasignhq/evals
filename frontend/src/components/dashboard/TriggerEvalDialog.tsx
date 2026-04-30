@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { triggerEval } from "../../api/evals";
 import { useProviders } from "../../hooks/useProviders";
-
-const DEFAULT_INSTALLATION_ID = "109899673";
+import { useRepos } from "../../hooks/useRepos";
 
 export function TriggerEvalButton() {
   const [open, setOpen] = useState(false);
@@ -22,11 +21,11 @@ export function TriggerEvalButton() {
 }
 
 function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
+  const { data: repos, isLoading: reposLoading } = useRepos();
+  const { data: providers } = useProviders();
   const [repo, setRepo] = useState("");
   const [prNumber, setPrNumber] = useState("");
-  const [installationId, setInstallationId] = useState(DEFAULT_INSTALLATION_ID);
   const [provider, setProvider] = useState<"claude" | "gemini" | "default">("default");
-  const { data: providers } = useProviders();
   const qc = useQueryClient();
   const nav = useNavigate();
 
@@ -35,7 +34,6 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
       triggerEval({
         repo,
         prNumber: parseInt(prNumber, 10),
-        installationId: parseInt(installationId, 10),
         provider: provider === "default" ? undefined : provider,
       }),
     onSuccess: (data) => {
@@ -48,6 +46,9 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
     },
   });
 
+  const repoOptions = repos?.items ?? [];
+  const noRepos = !reposLoading && repoOptions.length === 0;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
       <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-2xl">
@@ -55,14 +56,37 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-text-muted">
-              Repo (org/name)
+              Repo
             </label>
-            <input
-              value={repo}
-              onChange={(e) => setRepo(e.target.value)}
-              placeholder="devasignhq/devasign-api"
-              className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
-            />
+            {noRepos ? (
+              <div className="rounded-md border border-border bg-elevated px-3 py-2 text-xs text-text-secondary">
+                No repos registered.{" "}
+                <Link
+                  to="/settings"
+                  onClick={onClose}
+                  className="text-primary hover:text-primary-hover"
+                >
+                  Add one in Settings
+                </Link>
+                .
+              </div>
+            ) : (
+              <select
+                value={repo}
+                onChange={(e) => setRepo(e.target.value)}
+                disabled={reposLoading}
+                className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
+              >
+                <option value="" disabled>
+                  {reposLoading ? "Loading…" : "Select a repo"}
+                </option>
+                {repoOptions.map((r) => (
+                  <option key={r.repo} value={r.repo}>
+                    {r.repo}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-text-muted">
@@ -72,17 +96,6 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
               value={prNumber}
               onChange={(e) => setPrNumber(e.target.value)}
               placeholder="42"
-              className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs uppercase tracking-wider text-text-muted">
-              Installation ID
-            </label>
-            <input
-              value={installationId}
-              onChange={(e) => setInstallationId(e.target.value)}
-              placeholder="109899673"
               className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
             />
           </div>
@@ -121,7 +134,7 @@ function TriggerEvalDialog({ onClose }: { onClose: () => void }) {
           </button>
           <button
             onClick={() => mut.mutate()}
-            disabled={!repo || !prNumber || !installationId || mut.isPending}
+            disabled={!repo || !prNumber || mut.isPending}
             className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-40"
           >
             {mut.isPending ? "Running…" : "Run Eval"}

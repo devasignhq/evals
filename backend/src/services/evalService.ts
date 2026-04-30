@@ -15,7 +15,7 @@ import type { ProviderName } from "./providers/types.js";
 export interface RunEvalInput {
   repo: string;
   prNumber: number;
-  installationId: number;
+  installationId: string;
   provider?: ProviderName;
   agentReviewIdHint?: string;
   headShaHint?: string;

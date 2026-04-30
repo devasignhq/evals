@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
-import { evalResults, repoIndex } from "../db/schema.js";
+import { evalResults, repoIndex, repoSettings } from "../db/schema.js";
 
 export const reposRouter = new Hono();
 
 reposRouter.get("/", async (c) => {
   const db = getDb();
-  const rows = await db
+  const evalRows = await db
     .select({
       repo: evalResults.repo,
       lastEvaluatedAt: sql<Date>`max(${evalResults.evaluatedAt})`,
@@ -15,19 +15,47 @@ reposRouter.get("/", async (c) => {
       avgOverall: sql<number>`coalesce(avg(${evalResults.overallScore}), 0)`,
     })
     .from(evalResults)
-    .groupBy(evalResults.repo)
-    .orderBy(sql`max(${evalResults.evaluatedAt}) desc`);
+    .groupBy(evalResults.repo);
 
-  return c.json({
-    items: rows.map((r) => ({
+  const settingsRows = await db
+    .select({ repo: repoSettings.repo })
+    .from(repoSettings);
+
+  const byRepo = new Map<
+    string,
+    { repo: string; lastEvaluatedAt: string | null; totalEvals: number; avgOverall: number }
+  >();
+  for (const r of evalRows) {
+    byRepo.set(r.repo, {
       repo: r.repo,
       lastEvaluatedAt: r.lastEvaluatedAt
         ? new Date(r.lastEvaluatedAt).toISOString()
         : null,
       totalEvals: Number(r.totalEvals),
       avgOverall: Math.round(Number(r.avgOverall)),
-    })),
+    });
+  }
+  for (const s of settingsRows) {
+    if (!byRepo.has(s.repo)) {
+      byRepo.set(s.repo, {
+        repo: s.repo,
+        lastEvaluatedAt: null,
+        totalEvals: 0,
+        avgOverall: 0,
+      });
+    }
+  }
+
+  const items = [...byRepo.values()].sort((a, b) => {
+    if (a.lastEvaluatedAt && b.lastEvaluatedAt) {
+      return b.lastEvaluatedAt.localeCompare(a.lastEvaluatedAt);
+    }
+    if (a.lastEvaluatedAt) return -1;
+    if (b.lastEvaluatedAt) return 1;
+    return a.repo.localeCompare(b.repo);
   });
+
+  return c.json({ items });
 });
 
 reposRouter.get("/:org/:name/index", async (c) => {

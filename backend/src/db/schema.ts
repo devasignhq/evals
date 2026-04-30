@@ -54,6 +54,7 @@ export const repoIndex = pgTable("repo_index", {
 export const repoSettings = pgTable("repo_settings", {
   id: uuid("id").primaryKey().defaultRandom(),
   repo: text("repo").notNull().unique(),
+  installationId: text("installation_id"),
   defaultProvider: text("default_provider").notNull().default("claude"),
   evalEnabled: boolean("eval_enabled").notNull().default(true),
   thresholdOverrides: jsonb("threshold_overrides").$type<Record<string, number>>(),

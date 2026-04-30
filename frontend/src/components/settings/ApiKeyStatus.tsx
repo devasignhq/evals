@@ -2,7 +2,7 @@ import { useProviders } from "../../hooks/useProviders";
 import { Skeleton } from "../shared/Skeleton";
 
 export function ApiKeyStatus() {
-  const { data, isLoading, refetch, isFetching } = useProviders();
+  const { data, isLoading } = useProviders();
 
   if (isLoading) return <Skeleton className="h-32" />;
   if (!data) return null;
@@ -24,20 +24,11 @@ export function ApiKeyStatus() {
               <span className="capitalize">{p.provider}</span>
               <span className="font-mono text-xs text-text-muted">{p.model}</span>
             </div>
-            <div className="flex items-center gap-3">
-              {p.connected ? (
-                <span className="font-mono text-xs text-pass">✓ Connected</span>
-              ) : (
-                <span className="font-mono text-xs text-fail">✗ Missing</span>
-              )}
-              <button
-                onClick={() => refetch()}
-                disabled={isFetching}
-                className="rounded-md border border-border bg-surface px-2 py-0.5 text-xs hover:border-primary disabled:opacity-40"
-              >
-                Test
-              </button>
-            </div>
+            {p.connected ? (
+              <span className="font-mono text-xs text-pass">✓ Connected</span>
+            ) : (
+              <span className="font-mono text-xs text-fail">✗ Missing</span>
+            )}
           </div>
         ))}
       </div>

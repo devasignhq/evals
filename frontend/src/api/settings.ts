@@ -2,6 +2,7 @@ import { api, USE_MOCK } from "./client";
 
 export interface RepoSettingsResponse {
   repo: string;
+  installationId: string | null;
   defaultProvider: "claude" | "gemini" | "auto";
   evalEnabled: boolean;
   thresholdOverrides: Record<string, number> | null;
@@ -14,6 +15,7 @@ export async function getRepoSettings(repo: string): Promise<RepoSettingsRespons
     return (
       MOCK_SETTINGS[repo] ?? {
         repo,
+        installationId: null,
         defaultProvider: "claude",
         evalEnabled: true,
         thresholdOverrides: null,
@@ -31,6 +33,7 @@ export async function updateRepoSettings(
     MOCK_SETTINGS[repo] = {
       ...(MOCK_SETTINGS[repo] ?? {
         repo,
+        installationId: null,
         defaultProvider: "claude",
         evalEnabled: true,
         thresholdOverrides: null,
@@ -40,4 +43,12 @@ export async function updateRepoSettings(
     return { ok: true };
   }
   return api(`/v1/settings/repo/${repo}`, { method: "PUT", json: updates });
+}
+
+export async function deleteRepoSettings(repo: string): Promise<{ ok: true }> {
+  if (USE_MOCK) {
+    delete MOCK_SETTINGS[repo];
+    return { ok: true };
+  }
+  return api(`/v1/settings/repo/${repo}`, { method: "DELETE" });
 }

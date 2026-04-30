@@ -52,7 +52,7 @@ export function ThresholdEditor() {
           ))}
         </select>
       </div>
-      <ThresholdEditorForm repo={repo} />
+      <ThresholdEditorForm key={repo} repo={repo} />
     </div>
   );
 }
@@ -67,7 +67,7 @@ function ThresholdEditorForm({ repo }: { repo: string }) {
   const [draft, setDraft] = useState<Record<string, number> | null>(null);
 
   const overrides = settingsQ.data?.thresholdOverrides ?? null;
-  const merged: Record<string, number> = draft ?? {
+  const saved: Record<string, number> = {
     relevance: overrides?.relevance ?? THRESHOLDS.relevance,
     accuracy: overrides?.accuracy ?? THRESHOLDS.accuracy,
     depth: overrides?.depth ?? THRESHOLDS.depth,
@@ -75,11 +75,16 @@ function ThresholdEditorForm({ repo }: { repo: string }) {
       overrides?.regressionCoverage ?? THRESHOLDS.regressionCoverage,
     overall: overrides?.overall ?? THRESHOLDS.overall,
   };
+  const merged: Record<string, number> = draft ?? saved;
+  const dirty =
+    draft !== null &&
+    Object.keys(saved).some((k) => draft[k] !== saved[k]);
 
   const mut = useMutation({
     mutationFn: (t: Record<string, number>) =>
       updateRepoSettings(repo, { thresholdOverrides: t }),
     onSuccess: () => {
+      setDraft(null);
       qc.invalidateQueries({ queryKey: ["repo-settings", repo] });
     },
   });
@@ -121,21 +126,24 @@ function ThresholdEditorForm({ repo }: { repo: string }) {
           className="w-full rounded-md border border-border bg-elevated px-3 py-2 font-mono text-sm"
         />
       </div>
-      <div className="flex justify-end gap-2 pt-2">
-        <button
-          onClick={() => setDraft(null)}
-          className="rounded-md border border-border bg-elevated px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
-        >
-          Reset to defaults
-        </button>
-        <button
-          onClick={() => mut.mutate(merged)}
-          disabled={mut.isPending}
-          className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-40"
-        >
-          {mut.isPending ? "Saving…" : "Save"}
-        </button>
-      </div>
+      {(dirty || mut.isPending) && (
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            onClick={() => setDraft(null)}
+            disabled={mut.isPending}
+            className="rounded-md border border-border bg-elevated px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary"
+          >
+            Discard
+          </button>
+          <button
+            onClick={() => mut.mutate(merged)}
+            disabled={mut.isPending}
+            className="rounded-md bg-primary px-4 py-1.5 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-40"
+          >
+            {mut.isPending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

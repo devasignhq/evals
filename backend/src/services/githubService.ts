@@ -32,21 +32,43 @@ export class HttpGithubService implements GithubService {
     };
   }
 
-  private async req<T>(path: string): Promise<T> {
+  private async req<T>(
+    path: string,
+    context: { repo: string; prNumber: number }
+  ): Promise<T> {
     const res = await fetch(`https://api.github.com${path}`, {
       headers: this.headers(),
     });
     if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`GitHub API ${res.status} ${path}: ${body}`);
+      throw new Error(this.friendlyError(res.status, context));
     }
     return (await res.json()) as T;
   }
 
+  private friendlyError(
+    status: number,
+    { repo, prNumber }: { repo: string; prNumber: number }
+  ): string {
+    if (status === 404) {
+      return `Repo "${repo}" or PR #${prNumber} not found on GitHub. Check that the repo slug is correct, that PR #${prNumber} exists on it, and that GITHUB_TOKEN has access (private repos require a token with repo scope).`;
+    }
+    if (status === 401) {
+      return "GitHub returned 401 Unauthorized. The GITHUB_TOKEN is missing or invalid — check the backend .env.";
+    }
+    if (status === 403) {
+      return `GitHub returned 403 Forbidden for "${repo}". The token may lack access to this repo, or the API rate limit was hit.`;
+    }
+    return `GitHub API ${status} for ${repo}#${prNumber}.`;
+  }
+
   async fetchPRMetadata(repo: string, prNumber: number): Promise<PRMetadata> {
+    const ctx = { repo, prNumber };
     const [pr, filesRaw] = await Promise.all([
-      this.req<RawPR>(`/repos/${repo}/pulls/${prNumber}`),
-      this.req<RawPRFile[]>(`/repos/${repo}/pulls/${prNumber}/files?per_page=100`),
+      this.req<RawPR>(`/repos/${repo}/pulls/${prNumber}`, ctx),
+      this.req<RawPRFile[]>(
+        `/repos/${repo}/pulls/${prNumber}/files?per_page=100`,
+        ctx
+      ),
     ]);
     const changedFiles: PRChangedFile[] = filesRaw.map((f) => ({
       filename: f.filename,

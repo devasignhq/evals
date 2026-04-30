@@ -2,7 +2,7 @@ import type { AgentReview } from "../../../shared/types.js";
 
 export interface DevasignService {
   fetchAgentReview(input: {
-    installationId: number;
+    installationId: string;
     repo: string;
     prNumber: number;
   }): Promise<AgentReview>;
@@ -12,87 +12,96 @@ interface DevasignServiceConfig {
   baseUrl: string;
 }
 
-interface RawAgentReview {
-  reviewId?: string;
-  id?: string;
-  repo?: string;
-  prNumber?: number;
-  pr_number?: number;
-  headSha?: string;
-  head_sha?: string;
-  reviewedAt?: string;
-  reviewed_at?: string;
-  summary?: string;
-  verdict?: string;
-  issues?: unknown[];
-  suggestions?: unknown[];
-}
-
-interface RawIssue {
-  filePath?: string;
-  file_path?: string;
-  file?: string;
-  line?: number;
+interface RawSuggestion {
+  file?: string | null;
+  lineNumber?: number;
+  type?: string;
   severity?: string;
-  category?: string;
   description?: string;
-  message?: string;
-  suggestion?: string;
+  suggestedCode?: string;
+  language?: string;
+  reasoning?: string;
 }
 
-function adaptIssue(raw: unknown): AgentReview["issues"][number] {
-  const r = raw as RawIssue;
-  const sev = (r.severity ?? "medium").toLowerCase();
-  const allowedSev = ["info", "low", "medium", "high", "critical"] as const;
-  const severity =
-    (allowedSev as readonly string[]).includes(sev) ? (sev as AgentReview["issues"][number]["severity"]) : "medium";
-  const cat = (r.category ?? "other").toLowerCase();
-  const allowedCat = [
-    "security",
-    "performance",
-    "quality",
-    "testing",
-    "architecture",
-    "other",
-  ] as const;
-  const category =
-    (allowedCat as readonly string[]).includes(cat)
-      ? (cat as AgentReview["issues"][number]["category"])
-      : "other";
-  return {
-    filePath: r.filePath ?? r.file_path ?? r.file ?? "",
-    line: r.line,
-    severity,
-    category,
-    description: r.description ?? r.message ?? "",
-    suggestion: r.suggestion,
+interface RawReviewResult {
+  id?: string;
+  installationId?: string;
+  prNumber?: number;
+  repositoryName?: string;
+  mergeScore?: number;
+  reviewStatus?: string;
+  summary?: string;
+  confidence?: number;
+  processingTime?: number;
+  createdAt?: string;
+  suggestions?: RawSuggestion[];
+}
+
+interface ManualAnalysisEnvelope {
+  success?: boolean;
+  message?: string;
+  data?: {
+    prData?: unknown;
+    reviewResult?: RawReviewResult;
   };
 }
 
-// May need adjustment once a real manual-analysis response is observed.
-function adaptAgentReview(
-  raw: RawAgentReview,
+function mapVerdict(reviewStatus: string | undefined): AgentReview["verdict"] {
+  const s = (reviewStatus ?? "").toUpperCase();
+  if (s === "APPROVED") return "approve";
+  if (s === "CHANGES_REQUESTED") return "request_changes";
+  return "comment";
+}
+
+function mapCategory(type: string | undefined): AgentReview["issues"][number]["category"] {
+  const t = (type ?? "").toLowerCase();
+  if (t === "optimization") return "performance";
+  if (t === "fix" || t === "improvement" || t === "style") return "quality";
+  return "other";
+}
+
+function mapSeverity(
+  severity: string | undefined
+): AgentReview["issues"][number]["severity"] {
+  const s = (severity ?? "medium").toLowerCase();
+  const allowed = ["info", "low", "medium", "high", "critical"] as const;
+  return (allowed as readonly string[]).includes(s)
+    ? (s as AgentReview["issues"][number]["severity"])
+    : "medium";
+}
+
+function suggestionToIssue(s: RawSuggestion): AgentReview["issues"][number] {
+  return {
+    filePath: s.file ?? "",
+    line: s.lineNumber,
+    severity: mapSeverity(s.severity),
+    category: mapCategory(s.type),
+    description: s.description ?? "",
+    suggestion: s.suggestedCode ?? s.reasoning,
+  };
+}
+
+function suggestionToText(s: RawSuggestion): string {
+  const loc = s.file ? `${s.file}${s.lineNumber ? `:${s.lineNumber}` : ""}: ` : "";
+  return `${loc}${s.description ?? ""}${s.reasoning ? ` — ${s.reasoning}` : ""}`;
+}
+
+function adaptReviewResult(
+  rr: RawReviewResult,
   repo: string,
   prNumber: number
 ): AgentReview {
-  const verdictRaw = (raw.verdict ?? "comment").toLowerCase();
-  const allowedVerdicts = ["approve", "request_changes", "comment"] as const;
-  const verdict =
-    (allowedVerdicts as readonly string[]).includes(verdictRaw)
-      ? (verdictRaw as AgentReview["verdict"])
-      : "comment";
+  const suggestions = Array.isArray(rr.suggestions) ? rr.suggestions : [];
   return {
-    reviewId: raw.reviewId ?? raw.id ?? `rev_${repo}_${prNumber}`,
-    repo: raw.repo ?? repo,
-    prNumber: raw.prNumber ?? raw.pr_number ?? prNumber,
-    headSha: raw.headSha ?? raw.head_sha ?? "",
-    reviewedAt: raw.reviewedAt ?? raw.reviewed_at ?? new Date().toISOString(),
-    summary: raw.summary ?? "",
-    verdict,
-    issues: Array.isArray(raw.issues) ? raw.issues.map(adaptIssue) : [],
-    suggestions: Array.isArray(raw.suggestions)
-      ? (raw.suggestions.filter((s) => typeof s === "string") as string[])
-      : [],
+    reviewId: rr.id ?? `rev_${repo}_${prNumber}`,
+    repo: rr.repositoryName ?? repo,
+    prNumber: rr.prNumber ?? prNumber,
+    headSha: "",
+    reviewedAt: rr.createdAt ?? new Date().toISOString(),
+    summary: rr.summary ?? "",
+    verdict: mapVerdict(rr.reviewStatus),
+    issues: suggestions.map(suggestionToIssue),
+    suggestions: suggestions.map(suggestionToText),
   };
 }
 
@@ -100,7 +109,7 @@ export class HttpDevasignService implements DevasignService {
   constructor(private readonly cfg: DevasignServiceConfig) {}
 
   async fetchAgentReview(input: {
-    installationId: number;
+    installationId: string;
     repo: string;
     prNumber: number;
   }): Promise<AgentReview> {
@@ -115,6 +124,7 @@ export class HttpDevasignService implements DevasignService {
         installationId: input.installationId,
         repositoryName: input.repo,
         prNumber: input.prNumber,
+        resultOnly: true,
       }),
     });
     if (!res.ok) {
@@ -123,8 +133,14 @@ export class HttpDevasignService implements DevasignService {
         `DevAsign API ${res.status} /test/ai-services/github/manual-analysis: ${body}`
       );
     }
-    const raw = (await res.json()) as RawAgentReview;
-    return adaptAgentReview(raw, input.repo, input.prNumber);
+    const envelope = (await res.json()) as ManualAnalysisEnvelope;
+    const reviewResult = envelope?.data?.reviewResult;
+    if (!reviewResult) {
+      throw new Error(
+        `DevAsign API returned 200 but no data.reviewResult (success=${envelope?.success}, message=${envelope?.message ?? ""})`
+      );
+    }
+    return adaptReviewResult(reviewResult, input.repo, input.prNumber);
   }
 }
 

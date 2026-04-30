@@ -2,11 +2,12 @@ import { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db/client.js";
-import { repoSettings } from "../db/schema.js";
+import { evalResults, repoIndex, repoSettings } from "../db/schema.js";
 
 export const settingsRouter = new Hono();
 
 const updateSchema = z.object({
+  installationId: z.string().min(1).optional(),
   defaultProvider: z.enum(["claude", "gemini", "auto"]).optional(),
   evalEnabled: z.boolean().optional(),
   thresholdOverrides: z.record(z.string(), z.number()).optional(),
@@ -24,6 +25,7 @@ settingsRouter.get("/repo/:org/:name", async (c) => {
   if (!row) {
     return c.json({
       repo,
+      installationId: null,
       defaultProvider: "claude",
       evalEnabled: true,
       thresholdOverrides: null,
@@ -31,6 +33,7 @@ settingsRouter.get("/repo/:org/:name", async (c) => {
   }
   return c.json({
     repo: row.repo,
+    installationId: row.installationId,
     defaultProvider: row.defaultProvider,
     evalEnabled: row.evalEnabled,
     thresholdOverrides: row.thresholdOverrides,
@@ -49,6 +52,7 @@ settingsRouter.put("/repo/:org/:name", async (c) => {
     .insert(repoSettings)
     .values({
       repo,
+      installationId: parsed.data.installationId,
       defaultProvider: parsed.data.defaultProvider ?? "claude",
       evalEnabled: parsed.data.evalEnabled ?? true,
       thresholdOverrides: parsed.data.thresholdOverrides,
@@ -57,6 +61,9 @@ settingsRouter.put("/repo/:org/:name", async (c) => {
     .onConflictDoUpdate({
       target: repoSettings.repo,
       set: {
+        ...(parsed.data.installationId !== undefined
+          ? { installationId: parsed.data.installationId }
+          : {}),
         ...(parsed.data.defaultProvider !== undefined
           ? { defaultProvider: parsed.data.defaultProvider }
           : {}),
@@ -69,5 +76,14 @@ settingsRouter.put("/repo/:org/:name", async (c) => {
         updatedAt: new Date(),
       },
     });
+  return c.json({ ok: true });
+});
+
+settingsRouter.delete("/repo/:org/:name", async (c) => {
+  const repo = `${c.req.param("org")}/${c.req.param("name")}`;
+  const db = getDb();
+  await db.delete(evalResults).where(eq(evalResults.repo, repo));
+  await db.delete(repoIndex).where(eq(repoIndex.repo, repo));
+  await db.delete(repoSettings).where(eq(repoSettings.repo, repo));
   return c.json({ ok: true });
 });
