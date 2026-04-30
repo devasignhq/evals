@@ -11,6 +11,7 @@ import {
   providerFromEnv,
 } from "./providers/factory.js";
 import type { ProviderName } from "./providers/types.js";
+import { loadIndexedRepoContext } from "./repoIndexerService.js";
 
 export interface RunEvalInput {
   repo: string;
@@ -88,15 +89,7 @@ export async function runEval(
     prNumber: input.prNumber,
   });
 
-  const context: IndexedRepoContext = {
-    repoId: input.repo,
-    indexedAt: new Date().toISOString(),
-    ageInDays: 0,
-    relevantPatterns: [],
-    historicalIssues: [],
-    codingStandards: [],
-    regressionHotspots: [],
-  };
+  const context: IndexedRepoContext = await loadIndexedRepoContext(input.repo);
 
   const judged = await runJudge(judge, { pr, agentReview, context });
 

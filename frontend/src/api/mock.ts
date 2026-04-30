@@ -263,6 +263,8 @@ export function mockRepos() {
     avgOverall: Math.round(
       evals.reduce((sum, e) => sum + e.scores.overall, 0) / evals.length
     ),
+    lastIndexedAt: null,
+    hotspotCount: 0,
   }));
   return { items };
 }
