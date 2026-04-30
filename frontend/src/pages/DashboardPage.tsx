@@ -9,7 +9,7 @@ import { ErrorState } from "../components/shared/ErrorState";
 import { Skeleton } from "../components/shared/Skeleton";
 import { useAggregateStats } from "../hooks/useAggregateStats";
 import { useEvals } from "../hooks/useEvals";
-import { useRepoIndex } from "../hooks/useRepoIndex";
+import { useAllHotspots } from "../hooks/useRepos";
 import { useScoreTrends } from "../hooks/useScoreTrends";
 import { rangeToDates, useAppFilters } from "../state/filters";
 
@@ -26,9 +26,7 @@ export function DashboardPage() {
     to,
     limit: 100,
   });
-  // Use first repo's index for hotspot heatmap when none selected
-  const heatmapRepo = repo ?? evalsQ.data?.items[0]?.repo;
-  const idxQ = useRepoIndex(heatmapRepo);
+  const hotspotsQ = useAllHotspots();
 
   return (
     <div className="space-y-4">
@@ -105,8 +103,8 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div>
-          {trendsQ.isLoading && <Skeleton className="h-72" />}
+        <div className="h-[440px]">
+          {trendsQ.isLoading && <Skeleton className="h-full" />}
           {trendsQ.isError && (
             <ErrorState
               message={(trendsQ.error as Error).message}
@@ -123,12 +121,13 @@ export function DashboardPage() {
               <ScoreTrendsChart points={trendsQ.data.points} />
             ))}
         </div>
-        <div>
-          {idxQ.isLoading && <Skeleton className="h-72" />}
-          {idxQ.data && evalsQ.data && (
+        <div className="h-[440px]">
+          {hotspotsQ.isLoading && <Skeleton className="h-full" />}
+          {hotspotsQ.data && evalsQ.data && (
             <RegressionHeatmap
-              hotspots={idxQ.data.regressionHotspots}
+              hotspots={hotspotsQ.data.items}
               evals={evalsQ.data.items}
+              initialRepoFilter={repo}
             />
           )}
         </div>

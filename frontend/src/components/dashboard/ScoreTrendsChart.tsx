@@ -31,7 +31,7 @@ export function ScoreTrendsChart({ points }: Props) {
   });
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-surface p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="text-sm font-medium text-text-primary">Score Trends</div>
         <div className="flex flex-wrap gap-2 text-xs">
@@ -51,7 +51,7 @@ export function ScoreTrendsChart({ points }: Props) {
           ))}
         </div>
       </div>
-      <div className="h-64 w-full sm:h-72">
+      <div className="min-h-0 w-full flex-1">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={points} margin={{ top: 8, right: 16, left: -10, bottom: 0 }}>
             <CartesianGrid stroke="#2e2e2e" strokeDasharray="3 3" />

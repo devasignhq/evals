@@ -2,6 +2,8 @@ import { Hono } from "hono";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { evalResults, repoIndex, repoSettings } from "../db/schema.js";
+import { createGithubService } from "../services/githubService.js";
+import { GithubRepoIndexer } from "../services/repoIndexerService.js";
 
 export const reposRouter = new Hono();
 
@@ -21,11 +23,35 @@ reposRouter.get("/", async (c) => {
     .select({ repo: repoSettings.repo })
     .from(repoSettings);
 
-  const byRepo = new Map<
-    string,
-    { repo: string; lastEvaluatedAt: string | null; totalEvals: number; avgOverall: number }
-  >();
+  const indexRows = await db
+    .select({
+      repo: repoIndex.repo,
+      indexedAt: repoIndex.indexedAt,
+      hotspotCount: sql<number>`coalesce(jsonb_array_length(${repoIndex.regressionHotspots}), 0)::int`,
+    })
+    .from(repoIndex);
+  const indexByRepo = new Map(
+    indexRows.map((r) => [
+      r.repo,
+      {
+        indexedAt: r.indexedAt ? new Date(r.indexedAt).toISOString() : null,
+        hotspotCount: Number(r.hotspotCount),
+      },
+    ])
+  );
+
+  type RepoEntry = {
+    repo: string;
+    lastEvaluatedAt: string | null;
+    totalEvals: number;
+    avgOverall: number;
+    lastIndexedAt: string | null;
+    hotspotCount: number;
+  };
+
+  const byRepo = new Map<string, RepoEntry>();
   for (const r of evalRows) {
+    const idx = indexByRepo.get(r.repo);
     byRepo.set(r.repo, {
       repo: r.repo,
       lastEvaluatedAt: r.lastEvaluatedAt
@@ -33,15 +59,20 @@ reposRouter.get("/", async (c) => {
         : null,
       totalEvals: Number(r.totalEvals),
       avgOverall: Math.round(Number(r.avgOverall)),
+      lastIndexedAt: idx?.indexedAt ?? null,
+      hotspotCount: idx?.hotspotCount ?? 0,
     });
   }
   for (const s of settingsRows) {
     if (!byRepo.has(s.repo)) {
+      const idx = indexByRepo.get(s.repo);
       byRepo.set(s.repo, {
         repo: s.repo,
         lastEvaluatedAt: null,
         totalEvals: 0,
         avgOverall: 0,
+        lastIndexedAt: idx?.indexedAt ?? null,
+        hotspotCount: idx?.hotspotCount ?? 0,
       });
     }
   }
@@ -56,6 +87,38 @@ reposRouter.get("/", async (c) => {
   });
 
   return c.json({ items });
+});
+
+reposRouter.get("/hotspots", async (c) => {
+  const db = getDb();
+  const rows = await db
+    .select({
+      repo: repoIndex.repo,
+      hotspots: repoIndex.regressionHotspots,
+    })
+    .from(repoIndex);
+  const items = rows.flatMap((r) =>
+    r.hotspots.map((h) => ({ repo: r.repo, hotspot: h }))
+  );
+  return c.json({ items });
+});
+
+reposRouter.post("/:org/:name/reindex", async (c) => {
+  const repo = `${c.req.param("org")}/${c.req.param("name")}`;
+  try {
+    const github = createGithubService();
+    const indexer = new GithubRepoIndexer(github);
+    const ctx = await indexer.indexRepo(repo);
+    return c.json({
+      ok: true,
+      indexedAt: ctx.indexedAt,
+      hotspotCount: ctx.regressionHotspots.length,
+      historicalIssueCount: ctx.historicalIssues.length,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return c.json({ error: msg }, 500);
+  }
 });
 
 reposRouter.get("/:org/:name/index", async (c) => {

@@ -1,7 +1,23 @@
 import type { PRChangedFile, PRMetadata } from "../../../shared/types.js";
 
+export interface CommitSummary {
+  sha: string;
+  message: string;
+  date: string;
+  author: string;
+}
+
+export interface CommitWithFiles extends CommitSummary {
+  files: { filename: string; status: string }[];
+}
+
 export interface GithubService {
   fetchPRMetadata(repo: string, prNumber: number): Promise<PRMetadata>;
+  listCommits(
+    repo: string,
+    opts: { since: string; perPage?: number; maxPages?: number }
+  ): Promise<CommitSummary[]>;
+  getCommit(repo: string, sha: string): Promise<CommitWithFiles>;
 }
 
 interface RawPR {
@@ -59,6 +75,70 @@ export class HttpGithubService implements GithubService {
       return `GitHub returned 403 Forbidden for "${repo}". The token may lack access to this repo, or the API rate limit was hit.`;
     }
     return `GitHub API ${status} for ${repo}#${prNumber}.`;
+  }
+
+  async listCommits(
+    repo: string,
+    opts: { since: string; perPage?: number; maxPages?: number }
+  ): Promise<CommitSummary[]> {
+    const perPage = opts.perPage ?? 100;
+    const maxPages = opts.maxPages ?? 3;
+    const out: CommitSummary[] = [];
+    for (let page = 1; page <= maxPages; page++) {
+      const path = `/repos/${repo}/commits?since=${encodeURIComponent(
+        opts.since
+      )}&per_page=${perPage}&page=${page}`;
+      const batch = await this.reqRaw<
+        Array<{
+          sha: string;
+          commit: {
+            message: string;
+            author?: { date?: string; name?: string };
+          };
+        }>
+      >(path, { repo, prNumber: 0 });
+      for (const c of batch) {
+        out.push({
+          sha: c.sha,
+          message: c.commit.message,
+          date: c.commit.author?.date ?? "",
+          author: c.commit.author?.name ?? "",
+        });
+      }
+      if (batch.length < perPage) break;
+    }
+    return out;
+  }
+
+  async getCommit(repo: string, sha: string): Promise<CommitWithFiles> {
+    const c = await this.reqRaw<{
+      sha: string;
+      commit: { message: string; author?: { date?: string; name?: string } };
+      files?: { filename: string; status: string }[];
+    }>(`/repos/${repo}/commits/${sha}`, { repo, prNumber: 0 });
+    return {
+      sha: c.sha,
+      message: c.commit.message,
+      date: c.commit.author?.date ?? "",
+      author: c.commit.author?.name ?? "",
+      files: (c.files ?? []).map((f) => ({
+        filename: f.filename,
+        status: f.status,
+      })),
+    };
+  }
+
+  private async reqRaw<T>(
+    path: string,
+    context: { repo: string; prNumber: number }
+  ): Promise<T> {
+    const res = await fetch(`https://api.github.com${path}`, {
+      headers: this.headers(),
+    });
+    if (!res.ok) {
+      throw new Error(this.friendlyError(res.status, context));
+    }
+    return (await res.json()) as T;
   }
 
   async fetchPRMetadata(repo: string, prNumber: number): Promise<PRMetadata> {
