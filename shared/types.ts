@@ -87,6 +87,10 @@ export interface AggregateStats {
 
 export interface TrendDataPoint {
   date: string;
+  runId: string;
+  repo: string;
+  prNumber: number;
+  provider: "claude" | "gemini";
   relevance: number;
   accuracy: number;
   depth: number;

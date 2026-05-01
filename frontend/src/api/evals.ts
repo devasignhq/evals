@@ -39,6 +39,7 @@ export async function getAggregate(filters: {
 
 export async function getTrends(filters: {
   repo?: string;
+  provider?: string;
   from?: string;
   to?: string;
 }): Promise<{ points: TrendDataPoint[] }> {
