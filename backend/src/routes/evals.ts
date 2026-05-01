@@ -164,7 +164,10 @@ evalsRouter.get("/trends", async (c) => {
     })
     .from(evalResults)
     .where(where)
-    .orderBy(evalResults.evaluatedAt);
+    .orderBy(desc(evalResults.evaluatedAt))
+    .limit(1000);
+
+  rows.reverse();
 
   const points: TrendDataPoint[] = rows.map((r) => ({
     date: r.evaluatedAt.toISOString(),
