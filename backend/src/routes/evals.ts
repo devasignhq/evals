@@ -136,12 +136,14 @@ evalsRouter.get("/aggregate", async (c) => {
 
 evalsRouter.get("/trends", async (c) => {
   const repo = c.req.query("repo");
+  const provider = c.req.query("provider");
   const from = parseDate(c.req.query("from"));
   const to = parseDate(c.req.query("to"));
 
   const db = getDb();
   const conds = [];
   if (repo) conds.push(eq(evalResults.repo, repo));
+  if (provider) conds.push(eq(evalResults.provider, provider));
   if (from && to) conds.push(between(evalResults.evaluatedAt, from, to));
   else if (from) conds.push(gte(evalResults.evaluatedAt, from));
   else if (to) conds.push(lte(evalResults.evaluatedAt, to));
@@ -149,20 +151,27 @@ evalsRouter.get("/trends", async (c) => {
 
   const rows = await db
     .select({
-      day: sql<string>`to_char(${evalResults.evaluatedAt}, 'YYYY-MM-DD')`,
-      relevance: sql<number>`avg(${evalResults.relevanceScore})`,
-      accuracy: sql<number>`avg(${evalResults.accuracyScore})`,
-      depth: sql<number>`avg(${evalResults.depthScore})`,
-      regressionCoverage: sql<number>`avg(${evalResults.regressionScore})`,
-      overall: sql<number>`avg(${evalResults.overallScore})`,
+      runId: evalResults.runId,
+      repo: evalResults.repo,
+      prNumber: evalResults.prNumber,
+      provider: evalResults.provider,
+      evaluatedAt: evalResults.evaluatedAt,
+      relevance: evalResults.relevanceScore,
+      accuracy: evalResults.accuracyScore,
+      depth: evalResults.depthScore,
+      regressionCoverage: evalResults.regressionScore,
+      overall: evalResults.overallScore,
     })
     .from(evalResults)
     .where(where)
-    .groupBy(sql`to_char(${evalResults.evaluatedAt}, 'YYYY-MM-DD')`)
-    .orderBy(sql`to_char(${evalResults.evaluatedAt}, 'YYYY-MM-DD')`);
+    .orderBy(evalResults.evaluatedAt);
 
   const points: TrendDataPoint[] = rows.map((r) => ({
-    date: r.day,
+    date: r.evaluatedAt.toISOString(),
+    runId: r.runId,
+    repo: r.repo,
+    prNumber: r.prNumber,
+    provider: r.provider as "claude" | "gemini",
     relevance: Number(r.relevance),
     accuracy: Number(r.accuracy),
     depth: Number(r.depth),

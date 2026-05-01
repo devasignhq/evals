@@ -348,38 +348,26 @@ export function mockAggregate(filters: {
 
 export function mockTrends(filters: {
   repo?: string;
+  provider?: string;
   from?: string;
   to?: string;
 }): { points: TrendDataPoint[] } {
   const { items } = mockEvals({ ...filters, page: 1, limit: 9999 });
-  const byDay = new Map<string, EvalResult[]>();
-  for (const e of items) {
-    const day = e.evaluatedAt.slice(0, 10);
-    const arr = byDay.get(day) ?? [];
-    arr.push(e);
-    byDay.set(day, arr);
-  }
-  const days = Array.from(byDay.entries()).sort(([a], [b]) => a.localeCompare(b));
-  const points: TrendDataPoint[] = days.map(([date, group]) => {
-    const avg = (k: keyof EvalResult["scores"]) => {
-      if (k === "overall")
-        return group.reduce((s, e) => s + (e.scores.overall as number), 0) / group.length;
-      return (
-        group.reduce(
-          (s, e) => s + (e.scores[k] as { score: number }).score,
-          0
-        ) / group.length
-      );
-    };
-    return {
-      date,
-      relevance: Number(avg("relevance").toFixed(2)),
-      accuracy: Number(avg("accuracy").toFixed(2)),
-      depth: Number(avg("depth").toFixed(2)),
-      regressionCoverage: Number(avg("regressionCoverage").toFixed(2)),
-      overall: Number(avg("overall").toFixed(2)),
-    };
-  });
+  const sorted = [...items].sort((a, b) =>
+    a.evaluatedAt.localeCompare(b.evaluatedAt)
+  );
+  const points: TrendDataPoint[] = sorted.map((e) => ({
+    date: e.evaluatedAt,
+    runId: e.runId,
+    repo: e.repo,
+    prNumber: e.prNumber,
+    provider: e.provider,
+    relevance: Number(e.scores.relevance.score.toFixed(2)),
+    accuracy: Number(e.scores.accuracy.score.toFixed(2)),
+    depth: Number(e.scores.depth.score.toFixed(2)),
+    regressionCoverage: Number(e.scores.regressionCoverage.score.toFixed(2)),
+    overall: Number(e.scores.overall.toFixed(2)),
+  }));
   return { points };
 }
 

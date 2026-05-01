@@ -18,7 +18,12 @@ export function DashboardPage() {
   const { from, to } = useMemo(() => rangeToDates(range), [range]);
 
   const aggQ = useAggregateStats({ repo: repo ?? undefined, from, to });
-  const trendsQ = useScoreTrends({ repo: repo ?? undefined, from, to });
+  const trendsQ = useScoreTrends({
+    repo: repo ?? undefined,
+    provider: provider === "all" ? undefined : provider,
+    from,
+    to,
+  });
   const evalsQ = useEvals({
     repo: repo ?? undefined,
     provider: provider === "all" ? undefined : provider,
